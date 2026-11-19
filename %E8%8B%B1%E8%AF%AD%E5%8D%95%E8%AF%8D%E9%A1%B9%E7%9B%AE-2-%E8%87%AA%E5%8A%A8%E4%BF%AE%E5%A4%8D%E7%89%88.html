@@ -1,0 +1,731 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style>
+.bar-actions{display:flex;align-items:center;gap:7px}.new-unit{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px;font-size:12px;white-space:nowrap}.setup{padding-top:16px;padding-bottom:50px;display:flex;flex-direction:column;gap:14px}.setup-head{position:static}
+.setup-panel{display:flex;flex-direction:column;gap:12px}.setup-panel label:not(.upload){font-weight:700;font-size:14px;margin-top:4px}
+.setup input:not([type=file]),.setup textarea{width:100%;min-height:44px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:12px;font:inherit}
+.setup textarea{min-height:180px;resize:vertical;line-height:1.6}.setup input:focus,.setup textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.file-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.upload{border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer}.file-row input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.errors{background:var(--bad-soft);border:1px solid var(--bad);border-radius:8px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere}.setup button:disabled{opacity:.55;cursor:wait}
+#previousList{display:flex;flex-direction:column;gap:8px;padding-top:8px}.previousItem{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}.previousItem button{flex:none}
+#studyApp[hidden],#setupApp[hidden]{display:none!important}#studyApp .brand{overflow-wrap:anywhere}#studyApp .seg{grid-template-columns:repeat(var(--step-count,6),1fr)}
+</style></head><body>
+<title>六级词汇 · 关联学习</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap">
+<style>
+/* Layout: one-column study flow, sticky header with timer + segmented progress, bottom-anchored primary action. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --fg:#16202e; --muted:#5a6678; --line:#dbe0e8;
+  --accent:#b02a43; --accent-soft:#f8e3e7; --accent-fg:#ffffff;
+  --ok:#1f7a4d; --ok-soft:#def3e7; --warn:#8a5200; --warn-soft:#fbeccb; --bad:#b3261e; --bad-soft:#fbe1de;
+  --f-word:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-body:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10151d; --surface:#18202b; --fg:#e8edf4; --muted:#9aa6b8; --line:#2a3442;
+  --accent:#ef7088; --accent-soft:#3a1e26; --accent-fg:#1a0a0e;
+  --ok:#5fd49a; --ok-soft:#14301f; --warn:#f0b95a; --warn-soft:#35280e; --bad:#ff8a80; --bad-soft:#3a1a18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151d; --surface:#18202b; --fg:#e8edf4; --muted:#9aa6b8; --line:#2a3442;
+  --accent:#ef7088; --accent-soft:#3a1e26; --accent-fg:#1a0a0e;
+  --ok:#5fd49a; --ok-soft:#14301f; --warn:#f0b95a; --warn-soft:#35280e; --bad:#ff8a80; --bad-soft:#3a1a18; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:660px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);padding:12px 0 8px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--f-word);font-weight:700;font-size:18px;letter-spacing:.01em}
+.brand small{font:500 12px var(--f-body);color:var(--muted);margin-left:8px;letter-spacing:.04em}
+.timer{font-variant-numeric:tabular-nums;font-size:14px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;white-space:nowrap}
+.timer.over{color:var(--warn);border-color:var(--warn)}
+.tabs{display:flex;gap:4px;margin-top:10px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 14px;min-height:44px;color:var(--muted);font-weight:600}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tab .n{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:12px;line-height:20px;text-align:center}
+.seg{display:grid;grid-template-columns:repeat(var(--step-count,6),1fr);gap:4px;margin-top:10px}
+.seg i{height:5px;border-radius:3px;background:var(--line)}
+.seg i.on{background:var(--accent)} .seg i.cur{background:var(--accent);opacity:.45}
+main{display:flex;flex-direction:column;gap:14px;padding-top:12px}
+h1,h2,h3,p{margin:0}
+h1{font-size:24px;line-height:1.25;text-wrap:balance}
+h2{font-size:20px;line-height:1.3;text-wrap:balance}
+.eyebrow{font-size:12px;letter-spacing:.08em;color:var(--accent);font-weight:700;text-transform:uppercase}
+.muted{color:var(--muted)} .sm{font-size:14px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.plan{display:grid;gap:0;padding:0;overflow:hidden}
+.plan div{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 16px;border-top:1px solid var(--line);align-items:baseline}
+.plan div:first-child{border-top:0}
+.plan b{font-variant-numeric:tabular-nums;color:var(--accent)}
+.words{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.w{font-family:var(--f-word);font-weight:700;font-size:25px;line-height:1.2;overflow-wrap:anywhere}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ipa{font-family:var(--f-word);color:var(--muted);font-size:16px}
+.pos{font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 6px}
+.cn{font-weight:700;font-size:17px}
+.gl{font-size:14px;color:var(--muted)}
+.hook{font-size:14px;background:var(--warn-soft);color:var(--fg);border-radius:8px;padding:8px 10px}
+.hook b{color:var(--warn);margin-right:6px;font-size:12px;letter-spacing:.06em}
+.ex{font-family:var(--f-word);font-size:16.5px;line-height:1.5}
+.ex mark{background:none;color:var(--accent);font-weight:700;border-bottom:2px solid var(--accent)}
+.exc{font-size:13.5px;color:var(--muted)}
+.spk{margin-left:auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--muted)}
+.spk svg{width:20px;height:20px}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--bg);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-left,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px))}
+.dock .wrap{display:flex;gap:10px}
+.btn{flex:1;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;padding:8px 14px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.btn.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.btn.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.btn.back{flex:none;min-width:76px;color:var(--muted);padding:8px 10px}
+.btn.sm{flex:none;min-height:40px;font-size:14px}
+.prompt{font-family:var(--f-word);font-size:21px;line-height:1.5;text-wrap:pretty}
+.prompt .blank{display:inline-block;min-width:4.5em;border-bottom:2px solid var(--accent);margin:0 2px}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;min-height:52px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);padding:10px 14px;font-size:17px}
+.opt.w2{font-family:var(--f-word);font-weight:700;font-size:19px}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)} .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.fb{border-radius:10px;padding:12px 14px;font-size:15px;display:flex;flex-direction:column;gap:4px}
+.fb.ok{background:var(--ok-soft)} .fb.bad{background:var(--bad-soft)}
+.big{min-height:170px;display:flex;flex-direction:column;justify-content:center;gap:10px;text-align:center;align-items:center}
+.hint{font-family:var(--f-word);letter-spacing:.25em;font-size:20px;color:var(--muted)}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.story p{font-family:var(--f-word);font-size:18px;line-height:1.85;margin-bottom:14px}
+.story .t{background:var(--accent-soft);color:var(--accent);font-weight:700;border-radius:4px;padding:0 3px;border:0;font:inherit;font-weight:700;cursor:pointer}
+.story .t.sel{background:var(--accent);color:var(--accent-fg)}
+.story .zh{font-family:var(--f-body);font-size:15px;color:var(--muted);line-height:1.8}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--f-word);font-weight:700;background:var(--warn-soft);color:var(--warn);border-radius:999px;padding:3px 12px;font-size:15px}
+.sched{display:grid;gap:0;padding:0;overflow:hidden}
+.sched div{display:grid;grid-template-columns:92px 1fr auto;gap:10px;padding:10px 16px;border-top:1px solid var(--line);align-items:baseline;font-size:15px}
+.sched div:first-child{border-top:0}
+.sched b{font-variant-numeric:tabular-nums}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:26px;font-family:var(--f-word);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.boxes{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;align-items:end;height:84px}
+.boxes div{background:var(--accent-soft);border-radius:6px 6px 0 0;position:relative;min-height:4px}
+.boxes span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:12px;color:var(--muted)}
+.boxlab{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;font-size:11px;color:var(--muted);text-align:center}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+summary{list-style:none;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr);gap:10px;padding:10px 14px;min-height:48px;align-items:center;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+summary .w{font-size:18px} summary .cnx{font-size:14px;color:var(--muted)}
+details>div{padding:0 14px 12px;display:flex;flex-direction:column;gap:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-left:6px}
+.gt{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin-top:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:14px;z-index:12}
+@media (prefers-reduced-motion:no-preference){main>*{animation:in .22s ease-out both}@keyframes in{from{opacity:.0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+@media (max-width:420px){summary{grid-template-columns:1fr}.w{font-size:23px}}
+/* 新增：调试原文及导入导出控件 */
+.raw-response{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-height:340px;overflow:auto;margin:0;padding:12px;border-top:1px solid var(--line);font-size:12px;line-height:1.6;user-select:text}
+.export-import{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}.export-import .btn{flex:1 1 180px}
+#rawResponsePanel{margin-top:12px}#rawResponsePanel summary{display:block;font-weight:600}
+</style>
+
+
+<section id="setupApp" class="setup wrap">
+  <header class="setup-head"><div class="bar"><div class="brand">Vocabulary Studio <small>Phase 1</small></div><span class="timer">本地学习</span></div></header>
+  <div class="panel setup-panel">
+    <div class="eyebrow">关联词汇学习</div><h1>从单词清单到完整学习页</h1>
+    <p class="muted sm">按行输入目标单词，DeepSeek 会生成语义分组、例句、故事和复习材料。所有生成内容在校验通过后才显示；例句占位符格式错误时最多自动修复两次。</p>
+    <label for="wordsInput">单词或短语（每行一个）</label>
+    <textarea id="wordsInput" rows="8" placeholder="innovation&#10;transform&#10;automation&#10;efficiency&#10;inevitable" spellcheck="false"></textarea>
+    <div class="file-row"><label class="upload" for="imageInput">选择单词图片</label><input id="imageInput" type="file" accept="image/*"><span id="imageNote" class="muted sm">图片识别下一阶段接入；目前请将识别文本粘贴到上方</span></div>
+    <label for="apiKey">DeepSeek API Key</label><input id="apiKey" type="password" placeholder="sk-..." autocomplete="off">
+    <p class="muted sm">API Key 仅保存在当前浏览器的 localStorage，并直接用于请求 DeepSeek；请勿在共享设备输入。纯前端无法隐藏 Key，部分浏览器对 file:// 的网络访问可能有限制。</p>
+    <label for="modelInput">模型名称</label><input id="modelInput" value="deepseek-chat" autocomplete="off">
+    <div id="status" aria-live="polite" class="muted sm"></div><div id="errors" class="errors" role="alert" hidden></div>
+    <details id="rawResponsePanel" hidden><summary>查看模型原始返回（仅供排查）</summary><pre id="rawResponseText" class="raw-response"></pre></details>
+    <button id="generateBtn" class="btn pri" data-primary="1" type="button">生成学习页</button><button id="retryBtn" class="btn" type="button" hidden>使用原输入重试</button>
+    <div class="export-import"><button id="exportUnitBtn" class="btn" type="button" disabled>导出当前学习单元</button><button id="importUnitBtn" class="btn" type="button">导入学习单元</button><input type="file" id="importUnitFile" accept=".json,application/json" hidden></div>
+  </div>
+  <div class="panel sm">学习流程：<b>分组学习 → 盖住自测 → 混合测验 → 关联故事 → 间隔复习</b>。已生成的学习数据可在本地恢复，无需再次请求 API。</div>
+  <div id="previousWrap" class="panel sm" hidden><b>本地学习记录</b><div id="previousList"></div></div>
+</section>
+<section id="studyApp" hidden><div class="wrap">
+<header>
+  <div class="bar"><div class="brand">学习单元<small id="wordCount">未加载</small></div><div class="bar-actions"><button class="new-unit" id="newUnit" type="button">新建</button><div class="timer" id="tm">15:00</div></div></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="seg" id="seg" aria-hidden="true"></div>
+</header>
+<main id="main"></main>
+</div>
+<div class="dock" id="dock"><div class="wrap" id="dockin"></div></div></section>
+
+<script>
+"use strict";
+let W=[], BY={}, GN=[], STORY=[], STORE="";
+let P={srs:null,weak:{},done:false}, mem=null;
+const INT=[0,1,3,7,14,30], BOXN=["今晚","1天","3天","7天","14天","30天"];
+
+
+function load(){try{const r=localStorage.getItem(STORE);if(r)return JSON.parse(r)}catch(e){}return mem||{srs:null,weak:{},done:false}}
+function save(){mem=P;try{localStorage.setItem(STORE,JSON.stringify(P))}catch(e){}}
+
+const ymd=d=>{const z=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())};
+const addDays=(n)=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return ymd(d)};
+const today=()=>ymd(new Date());
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const $=s=>document.querySelector(s);
+const safe = x => String(x ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.lang="en-US";u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+const exHtml=(w,hl=true)=>w.ex.replace(/\{\{(.+?)\}\}/,(m,a)=>hl?"<mark>"+a+"</mark>":a);
+const exBlank=w=>w.ex.replace(/\{\{(.+?)\}\}/,'<span class="blank"></span>');
+
+const S={view:"learn",step:"intro",phase:"study",t0:null,tEnd:null,rc:null,quiz:null,story:{zh:false,sel:null},rev:null,toast:""};
+let tmr=null;
+function startTimer(){if(S.t0&&tmr)return;S.t0=S.t0||Date.now();tmr=setInterval(tick,500);tick()}
+function tick(){const el=$("#tm");if(!S.t0){el.textContent="15:00";return}const s=Math.floor(((S.tEnd||Date.now())-S.t0)/1000);const m=Math.floor(s/60);el.textContent=String(m).padStart(2,"0")+":"+String(s%60).padStart(2,"0")+" / 15:00";el.classList.toggle("over",s>900)}
+function dueList(){if(!P.srs)return[];const t=today();return W.filter(w=>P.srs[w.id]&&P.srs[w.id].due<=t)}
+
+function card(w){return `<article class="card"><div class="top"><span class="w">${w.w}</span><span class="pos">${w.pos}</span>${w.ipa?`<span class="ipa">${w.ipa}</span>`:""}<button class="spk" data-act="spk" data-t="${w.key}" aria-label="朗读 ${w.key}">${SPK}</button></div><div class="cn">${w.cn}</div><div class="gl">${w.gl}</div><div class="hook"><b>记忆钩</b>${w.hook}</div><div class="ex">${exHtml(w)}</div><div class="exc">${w.exc}</div></article>`}
+
+function head(){
+  const tabs=[["learn","学习"],["review","复习"],["list","总表"]];const n=dueList().length;
+  $("#tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.view===k}" data-act="tab" data-v="${k}">${l}${k==="review"&&n?`<span class="n">${n}</span>`:""}</button>`).join("");
+  const seg=$("#seg");seg.hidden=S.view!=="learn";
+  const order=[...GN.map((_,i)=>i),"quiz","story","done"];let ci=order.indexOf(S.step);if(S.step==="intro")ci=-1;
+  seg.style.setProperty("--step-count",order.length);seg.innerHTML=order.map((o,i)=>`<i class="${i<ci?"on":i===ci?"cur":""}"></i>`).join("");
+}
+const H=[];
+function snap(){H.push({v:S.view,s:JSON.stringify({step:S.step,phase:S.phase,rc:S.rc,quiz:S.quiz,story:S.story,rev:S.rev,tEnd:S.tEnd,weak:P.weak,srs:P.srs,done:P.done})});if(H.length>80)H.shift()}
+function back(){const t=H[H.length-1];if(!t||t.v!==S.view)return;H.pop();const o=JSON.parse(t.s);
+  Object.assign(S,{step:o.step,phase:o.phase,rc:o.rc,quiz:o.quiz,story:o.story,rev:o.rev,tEnd:o.tEnd});
+  P.weak=o.weak||{};P.srs=o.srs;P.done=o.done;save();
+  if(S.step==="intro"){S.t0=null;S.tEnd=null;clearInterval(tmr);tmr=null}
+  else if(S.t0&&!S.tEnd&&!tmr){tmr=setInterval(tick,500)}
+  tick();render()}
+const SNAP=new Set(["begin","recall","rc-flip","rc-ok","rc-miss","pick","qnext","finish","rate","rflip","rstart","rall","init","gorev","restart"]);
+function dock(html){html=html.replace(/class="btn pri"/g,'class="btn pri" data-primary="1"');const t=H[H.length-1];const bk=(html&&t&&t.v===S.view)?'<button class="btn back" data-act="back" aria-label="返回上一步">← 返回</button>':"";$("#dockin").innerHTML=bk+html;$("#dock").hidden=!html}
+function setMain(html,keepScroll){$("#main").innerHTML=html;if(!keepScroll)window.scrollTo(0,0)}
+
+function render(keep){head();({learn:rLearn,review:rReview,list:rList})[S.view](keep)}
+
+/* ---------- LEARN ---------- */
+function rLearn(keep){
+  const s=S.step;
+  if(s==="intro"){
+    const done=P.done;
+    setMain(`<div><div class="eyebrow">本次学习 · ${W.length} 个词</div><h1>完成本单元，之后按间隔回来复习</h1></div>
+    <p class="muted sm">每组先看 60 秒，再盖住自测 30 秒。读得越快越好，卡住的词会自动进入重点复习。</p>
+    <div class="panel plan"><div><b>5 分钟</b><span>${GN.length} 组分块学习，共 ${W.length} 个词，按意思相近分组，先看后测</span></div><div><b>3 分钟</b><span>混合测验，${W.length} 题打乱顺序，选错的词再出一次</span></div><div><b>2 分钟</b><span>把 ${W.length} 个词读进一篇短文，在语境里再见一遍</span></div><div><b>1 分钟</b><span>确认复习日期：今晚、明天、第 4 天、第 11 天、第 25 天</span></div></div>
+    <div class="panel sm"><b>为什么这样排</b><br>先回忆再看答案，比反复重读记得更牢。分组后再混合测验，是为了让你在没有分组提示时也能认出词。复习安排在快要忘的时候，每次间隔拉长。</div>
+    ${done?`<p class="sm muted">你已经完成过一轮。想再走一遍可以直接开始，复习进度不会被清空。</p>`:""}`);
+    dock(`<button class="btn pri" data-act="begin">开始计时，学第 1 组</button>`);return;
+  }
+  if(typeof s==="number"){
+    const ws=W.filter(w=>w.grp===s);
+    if(S.phase==="study"){
+      setMain(`<div><div class="eyebrow">第 ${s+1} / ${GN.length} 组 · ${ws.length} 个词</div><h2>${GN[s]}</h2></div><p class="muted sm">建议 60 秒读完。每个词：看读音，念一遍，读例句，看一眼记忆钩。不用背。</p><div class="words">${ws.map(card).join("")}</div>`,keep);
+      dock(`<button class="btn pri" data-act="recall">读完了，盖住自测</button>`);
+    }else{
+      const r=S.rc,id=r.q[r.i],w=BY[id];
+      if(!w){ // finished
+        S.step=s<GN.length-1?s+1:"quiz";S.phase="study";if(S.step==="quiz")buildQuiz();render();return}
+      const hint=w.key.split(" ").map(p=>p[0]+"·".repeat(Math.max(0,p.length-1)).split("").join(" ")).join("   ");
+      setMain(`<div class="eyebrow">第 ${s+1} 组 · 自测 ${Math.min(r.i+1,r.q.length)} / ${r.q.length}</div>
+      <div class="panel big"><div class="cn" style="font-size:22px">${w.cn}</div><div class="pos">${w.pos}</div><div class="hint">${hint}</div>
+      ${r.flip?`<div class="w" style="margin-top:6px">${w.w}</div><div class="ipa">${w.ipa}</div><div class="ex" style="text-align:left">${exHtml(w)}</div>`:`<p class="muted sm">先在心里想出英文，或者说出口，再翻面。</p>`}</div>`,keep);
+      dock(r.flip?`<button class="btn warn" data-act="rc-miss">再看一眼</button><button class="btn ok" data-act="rc-ok">记得</button>`:`<button class="btn pri" data-act="rc-flip">翻面看答案</button>`);
+    }
+    return;
+  }
+  if(s==="quiz"){rQuiz(keep);return}
+  if(s==="story"){rStory();return}
+  if(s==="done"){rDone();return}
+}
+function startRecall(){const g=S.step;S.rc={q:shuffle(W.filter(w=>w.grp===g).map(w=>w.id)),i:0,flip:false,again:{}};S.phase="recall";render()}
+
+/* quiz */
+function buildQuiz(){
+  const ids=shuffle(W.map(w=>w.id));
+  S.quiz={q:ids.map((id,i)=>mkQ(id,i%3)),i:0,first:{},again:{},ans:null,right:0};
+}
+function mkQ(id,type){
+  const w=BY[id];let pool=shuffle(W.filter(x=>x.id!==id&&x.g===w.g));
+  const rest=shuffle(W.filter(x=>x.id!==id&&x.g!==w.g));
+  const d=pool.concat(rest).slice(0,3).map(x=>x.id);
+  return{id,type,opts:shuffle([id,...d])};
+}
+function rQuiz(keep){
+  const Q=S.quiz;
+  if(Q.i>=Q.q.length){S.step="story";render();return}
+  const q=Q.q[Q.i],w=BY[q.id];
+  let prompt;
+  if(q.type===0)prompt=`<div class="prompt">${exBlank(w)}</div><p class="muted sm">选出填进空格的词</p>`;
+  else if(q.type===1)prompt=`<div class="prompt"><span class="w">${w.w}</span> <span class="ipa">${w.ipa}</span></div><p class="muted sm">选出意思</p>`;
+  else prompt=`<div class="prompt">${w.cn} <span class="pos">${w.pos}</span></div><p class="muted sm">选出对应的英文</p>`;
+  const lab=id=>q.type===1?BY[id].cn:BY[id].key;
+  const a=Q.ans;
+  const opts=q.opts.map(id=>{let c="opt"+(q.type!==1?" w2":"");if(a){if(id===q.id)c+=" right";else if(id===a.pick)c+=" wrong"}return `<button class="${c}" data-act="pick" data-id="${id}" ${a?"disabled":""}>${lab(id)}</button>`}).join("");
+  const fb=a?`<div class="fb ${a.ok?"ok":"bad"}"><b>${a.ok?"答对了":"正确答案：" + w.key}</b><span>${w.w} ${w.ipa} · ${w.cn}</span><span class="ex" style="font-size:15px">${exHtml(w)}</span></div>`:"";
+  setMain(`<div class="count">第 ${Math.min(Q.i+1,W.length)} 题 · 共 ${Q.q.length} 题（含重出）</div>${prompt}<div class="opts">${opts}</div>${fb}`,keep);
+  dock(a&&!a.ok?`<button class="btn pri" data-act="qnext">下一题</button>`:`<span class="muted sm" style="align-self:center">选一个，答对自动下一题</span>`);
+}
+function pick(id){
+  const Q=S.quiz;if(!Q||Q.transitionPending||Q.ans)return;
+  const questionIndex=Q.i,q=Q.q[questionIndex];if(!q)return;
+  const ok=id===q.id;
+  Q.ans={pick:id,ok};if(!(q.id in Q.first))Q.first[q.id]=ok;
+  if(ok){Q.right++}else{P.weak[q.id]=true;if(!Q.again[q.id]){Q.again[q.id]=1;Q.q.push(mkQ(q.id,(q.type+1)%3))}}
+  render(true);
+  if(ok){
+    Q.transitionPending=true;
+    setTimeout(()=>{
+      // 只允许产生这次定时器的同一份测验、同一题、同一答案自动跳题。
+      if(S.view!=="learn"||S.step!=="quiz"||S.quiz!==Q||Q.i!==questionIndex||Q.q[Q.i]!==q||!Q.ans||!Q.ans.ok||!Q.transitionPending)return;
+      Q.transitionPending=false;Q.i++;Q.ans=null;render();
+    },650);
+  }
+}
+
+/* story */
+function rStory(){
+  const st=S.story;
+  const conv=t=>t.replace(/\[\[(\w+)\|(.+?)\]\]/g,(m,id,tx)=>`<button class="t${st.sel===id?" sel":""}" data-act="tw" data-id="${id}">${tx}</button>`);
+  const sel=st.sel?BY[st.sel]:null;
+  setMain(`<div><div class="eyebrow">语境串联 · 约 2 分钟</div><h2>把 ${W.length} 个词读进一个故事</h2></div><p class="muted sm">整篇读一遍。遇到卡住的词，点它看释义。读完再点“看中文”核对理解。</p>
+  <div class="panel story">${STORY.map(p=>`<p>${conv(p.en)}</p>${st.zh?`<p class="zh">${p.zh}</p>`:""}`).join("")}</div>
+  ${sel?`<div class="card"><div class="top"><span class="w">${sel.w}</span><span class="pos">${sel.pos}</span><span class="ipa">${sel.ipa}</span></div><div class="cn">${sel.cn}</div><div class="hook"><b>记忆钩</b>${sel.hook}</div></div>`:""}`,true);
+  dock(`<button class="btn" data-act="zh">${st.zh?"隐藏中文":"看中文"}</button><button class="btn pri" data-act="finish">读完了，确认复习安排</button>`);
+}
+
+/* done */
+function finishLearn(){
+  if(!P.srs)P.srs={};
+  W.forEach(w=>{if(!P.srs[w.id])P.srs[w.id]={b:0,due:today()}});
+  P.done=true;save();S.tEnd=S.tEnd||Date.now();tick();clearInterval(tmr);tmr=null;S.step="done";render();
+}
+function sched(){
+  const L=[["今晚睡前",0,"约 2 分钟，趁热回忆一遍"],["明天",1,"第 1 次间隔复习"],["第 4 天",4,"只复习没记牢的"],["第 11 天",11,"一周后的巩固"],["第 25 天",25,"长期记忆检查"],["第 55 天",55,"最后一次确认"]];
+  return L.map(([a,n,t])=>{const d=new Date();d.setDate(d.getDate()+n);return `<div><b>${a}</b><span>${t}</span><span class="muted">${d.getMonth()+1}/${d.getDate()}</span></div>`}).join("");
+}
+function rDone(){
+  const Q=S.quiz;const fk=Q?Object.keys(Q.first):[];const ok=fk.filter(k=>Q.first[k]).length;
+  const weak=W.filter(w=>P.weak[w.id]);
+  const el=S.t0?Math.round(((S.tEnd||Date.now())-S.t0)/1000):0;
+  setMain(`<div><div class="eyebrow">第一轮完成</div><h1>${weak.length?`还有 ${weak.length} 个词需要多见几次`:`${W.length} 个词全部过关`}</h1></div>
+  <div class="stat"><div><b>${fk.length?ok+"/"+fk.length:String(W.length)}</b><span>测验一次答对</span></div><div><b>${weak.length}</b><span>重点词</span></div><div><b>${Math.floor(el/60)}:${String(el%60).padStart(2,"0")}</b><span>用时</span></div></div>
+  ${weak.length?`<div class="panel"><div class="gt" style="margin:0 0 8px">重点词，复习时会优先出现</div><div class="chips">${weak.map(w=>`<span class="chip">${w.key}</span>`).join("")}</div></div>`:""}
+  <div><h2 style="font-size:17px;margin-bottom:8px">复习日历</h2><div class="panel sched">${sched()}</div></div>
+  <p class="muted sm">每次复习只需要 2 到 3 分钟。回来时打开“复习”页，系统会按你的回答自动安排下一次。答错的词间隔重新缩短。</p>`);
+  dock(`<button class="btn" data-act="restart">再学一轮</button><button class="btn pri" data-act="gorev">现在复习一遍</button>`);
+}
+
+/* ---------- REVIEW ---------- */
+function startReview(all){
+  let ws=all?W.slice():dueList();
+  ws=shuffle(ws);ws.sort((a,b)=>(P.weak[b.id]?1:0)-(P.weak[a.id]?1:0));
+  S.rev={q:ws.map(w=>w.id),i:0,flip:false,again:{},n:ws.length};render();
+}
+function rReview(keep){
+  if(!P.srs){
+    setMain(`<h1>还没有复习计划</h1><p class="muted">先完成“学习”页的第一轮，系统会为 ${W.length} 个词建立复习排期。已经学过的话，也可以直接开始排期。</p>`);
+    dock(`<button class="btn" data-act="tab" data-v="learn">去学习</button><button class="btn pri" data-act="init">我已学过，开始排期</button>`);return}
+  const R=S.rev;
+  if(R&&R.i<R.q.length){
+    const w=BY[R.q[R.i]];
+    const hint=w.key.split(" ").map(p=>p[0]+" _".repeat(Math.max(0,p.length-1))).join("   ");
+    setMain(`<div class="count">复习 ${Math.min(R.i+1,R.q.length)} / ${R.q.length}${P.weak[w.id]?'<span class="dot" title="重点词"></span>':""}</div>
+    <div class="panel big"><div class="cn" style="font-size:22px">${w.cn}</div><div class="pos">${w.pos}</div><div class="hint">${hint}</div>
+    ${R.flip?`<div class="top" style="justify-content:center"><span class="w">${w.w}</span><button class="spk" style="margin:0" data-act="spk" data-t="${w.key}" aria-label="朗读">${SPK}</button></div><div class="ipa">${w.ipa}</div><div class="ex" style="text-align:left">${exHtml(w)}</div><div class="exc" style="text-align:left">${w.exc}</div>`:`<p class="muted sm">先想起英文，说出来，再翻面。</p>`}</div>`,keep);
+    dock(R.flip?`<button class="btn bad" data-act="rate" data-r="0">忘了</button><button class="btn warn" data-act="rate" data-r="1">模糊</button><button class="btn ok" data-act="rate" data-r="2">记得</button>`:`<button class="btn pri" data-act="rflip">翻面看答案</button>`);
+    return;
+  }
+  const due=dueList().length,cnt=[0,0,0,0,0,0];W.forEach(w=>{const s=P.srs[w.id];if(s)cnt[s.b]++});
+  const mx=Math.max(1,...cnt);
+  const next=W.map(w=>P.srs[w.id]&&P.srs[w.id].due).filter(d=>d&&d>today()).sort()[0];
+  const fin=R&&R.n?`<div class="fb ok"><b>本轮复习完成，共 ${R.n} 个词</b></div>`:"";
+  setMain(`${fin}<div><div class="eyebrow">今天</div><h1>${due?`${due} 个词到期，约 ${Math.max(1,Math.round(due*.12))} 分钟`:"今天没有到期的词"}</h1></div>
+  ${due===0&&next?`<p class="muted">下一次复习在 ${next.slice(5).replace("-","/")}。</p>`:""}
+  <div class="panel"><div class="gt" style="margin:0 0 22px">${W.length} 个词所在的记忆阶段</div><div class="boxes">${cnt.map(c=>`<div style="height:${Math.max(4,c/mx*100)}%"><span>${c}</span></div>`).join("")}</div><div class="boxlab" style="margin-top:6px">${BOXN.map(b=>`<span>${b}</span>`).join("")}</div><p class="muted sm" style="margin-top:10px">阶段越靠右，下次复习的间隔越长。答错会回到“今晚”。</p></div>
+  <div class="panel sm"><b>怎么评分</b><br>看到中文，想出英文并能拼出首字母以外的部分，才算“记得”。只认得出来但想不起来，选“模糊”，明天再见一次。</div>`);
+  dock(`${due?`<button class="btn pri" data-act="rstart">开始复习 ${due} 个词</button>`:`<button class="btn pri" data-act="rall">提前过一遍全部 ${W.length} 个词</button>`}`);
+}
+function rate(r){
+  const R=S.rev,id=R.q[R.i],s=P.srs[id];
+  if(r===0){s.b=0;s.due=today();P.weak[id]=true;if(!R.again[id]){R.again[id]=1;R.q.push(id)}}
+  else if(r===1){s.due=addDays(1);P.weak[id]=true}
+  else{s.b=Math.min(5,s.b+1);s.due=addDays(INT[s.b]);if(s.b>=3)delete P.weak[id]}
+  save();R.i++;R.flip=false;render();
+}
+
+/* ---------- LIST ---------- */
+function rList(){
+  let h=`<div><div class="eyebrow">速查</div><h1>${W.length} 个词总表</h1></div><p class="muted sm">橙色圆点是你的重点词。点开一行看记忆钩和例句。</p>`;
+  GN.forEach((g,i)=>{h+=`<div class="gt">第 ${i+1} 组 · ${g}</div>`+W.filter(w=>w.grp===i).map(w=>`<details><summary><span class="w">${w.w}${P.weak[w.id]?'<span class="dot"></span>':""}</span><span class="cnx">${w.cn}</span></summary><div><div class="ipa">${w.ipa} <span class="pos">${w.pos}</span></div><div class="hook"><b>记忆钩</b>${w.hook}</div><div class="ex">${exHtml(w)}</div><div class="exc">${w.exc}</div></div></details>`).join("")});
+  setMain(h,true);dock("");
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act;
+  if(a==="back")return back();
+  if(SNAP.has(a)&&!(a==="pick"&&S.quiz&&S.quiz.ans))snap();
+  if(a==="spk")return speak(b.dataset.t);
+  if(a==="tab"){S.view=b.dataset.v;return render()}
+  if(a==="begin"){startTimer();S.step=0;S.phase="study";return render()}
+  if(a==="recall")return startRecall();
+  if(a==="rc-flip"){S.rc.flip=true;return render(true)}
+  if(a==="rc-ok"||a==="rc-miss"){const r=S.rc,id=r.q[r.i];
+    if(a==="rc-miss"){P.weak[id]=true;save();if(!r.again[id]){r.again[id]=1;r.q.push(id)}}
+    r.i++;r.flip=false;return render()}
+  if(a==="pick")return pick(b.dataset.id);
+  if(a==="qnext"){if(!S.quiz||S.quiz.transitionPending||!S.quiz.ans||S.quiz.ans.ok)return;S.quiz.i++;S.quiz.ans=null;return render()}
+  if(a==="tw"){S.story.sel=S.story.sel===b.dataset.id?null:b.dataset.id;return render(true)}
+  if(a==="zh"){S.story.zh=!S.story.zh;return render(true)}
+  if(a==="finish")return finishLearn();
+  if(a==="restart"){S.step="intro";S.t0=null;S.tEnd=null;clearInterval(tmr);tmr=null;tick();return render()}
+  if(a==="gorev"){S.view="review";S.rev=null;return startReview(false)}
+  if(a==="init"){P.srs={};W.forEach(w=>P.srs[w.id]={b:0,due:today()});P.done=true;save();return render()}
+  if(a==="rstart")return startReview(false);
+  if(a==="rall")return startReview(true);
+  if(a==="rflip"){S.rev.flip=true;return render(true)}
+  if(a==="rate")return rate(+b.dataset.r);
+});
+// 动态学习进度：状态快照与复习数据共同保留
+const _render=render;
+render=function(keep){_render(keep);persistSession()};
+function persistSession(){
+  if(!STORE)return;
+  try{localStorage.setItem(STORE+":session",JSON.stringify({view:S.view,step:S.step,phase:S.phase,t0:S.t0,tEnd:S.tEnd,rc:S.rc,quiz:S.quiz,story:S.story,rev:S.rev}))}catch(e){}
+}
+function restoreSession(){
+  const fallback=(reason)=>{
+    console.warn("会话恢复失败，已回退到 intro：",reason);
+    Object.assign(S,{view:"learn",step:"intro",phase:"study",t0:null,tEnd:null,rc:null,quiz:null,story:{zh:false,sel:null},rev:null});
+    clearInterval(tmr);tmr=null;
+  };
+  try{
+    const stored=localStorage.getItem(STORE+":session");if(!stored)return;
+    const s=JSON.parse(stored);
+    if(!s||typeof s!=="object"||!["learn","review","list"].includes(s.view))return fallback("view 无效");
+    if(!(s.step==="intro"||s.step==="quiz"||s.step==="story"||s.step==="done"||Number.isInteger(s.step)&&s.step>=0&&s.step<GN.length))return fallback("step 无效");
+    if(s.step==="quiz"&&(!s.quiz||!Array.isArray(s.quiz.q)||!Number.isInteger(s.quiz.i)||s.quiz.i<0||s.quiz.i>=s.quiz.q.length))return fallback("quiz 数据无效");
+    if(typeof s.step==="number"&&s.phase==="recall"&&(!s.rc||!Array.isArray(s.rc.q)||!Number.isInteger(s.rc.i)))return fallback("recall 数据无效");
+    Object.assign(S,{view:s.view,step:s.step,phase:s.phase,t0:s.t0,tEnd:s.tEnd,rc:s.rc,quiz:s.quiz,story:s.story||{zh:false,sel:null},rev:s.rev});
+    // 从旧会话恢复时，过期的异步锁不应阻止答题。
+    if(S.quiz){if(S.quiz.transitionPending&&S.quiz.ans?.ok){S.quiz.i++;S.quiz.ans=null;}S.quiz.transitionPending=false;}
+    if(S.t0&&!S.tEnd)tmr=setInterval(tick,500);
+  }catch(e){fallback(e)}
+}
+function bindLesson(data){
+  // 数据经校验后统一转义，禁止 API 文本进入 HTML 或属性上下文执行
+  W=data.words.map(w=>Object.fromEntries(Object.entries(w).map(([k,v])=>[k,typeof v==="string"?safe(v):v])));
+  BY=Object.fromEntries(W.map(w=>[w.id,w])); GN=data.groups.map(safe);
+  STORY=data.story.map(p=>({en:safe(p.en),zh:safe(p.zh)})); STORE=data.storeKey;
+  mem=null;P=load();Object.assign(S,{view:"learn",step:"intro",phase:"study",t0:null,tEnd:null,rc:null,quiz:null,story:{zh:false,sel:null},rev:null});
+  clearInterval(tmr);tmr=null;H.length=0;
+  document.querySelector("#studyApp .brand").firstChild.textContent=data.title;
+  document.getElementById("wordCount").textContent=W.length+" 个标记词";
+  restoreSession();document.getElementById("studyApp").hidden=false;
+  document.getElementById("setupApp").hidden=true;render();tick();
+}
+// 模板快捷键：不拦截文本输入或组合输入
+let reviewKeyAt = -Infinity;
+window.addEventListener("keydown",e=>{
+  if(document.getElementById("studyApp").hidden||e.ctrlKey||e.metaKey||e.altKey||e.isComposing||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)||document.activeElement?.isContentEditable)return;
+  const k=e.key;
+  if(S.view==="review" && ["ArrowUp","ArrowDown","ArrowRight","ArrowLeft","Escape","1","2","3"," ","Enter"].includes(k)){
+    e.preventDefault();
+    const now=performance.now();
+    if(e.repeat || now-reviewKeyAt<350)return;
+    reviewKeyAt=now;
+    if(k==="ArrowLeft"||k==="Escape"){back();return}
+    const R=S.rev;
+    if(["ArrowUp","ArrowDown","ArrowRight"].includes(k)){
+      if(!R||R.i>=R.q.length)return;
+      if(R.flip){
+        const r={ArrowUp:0,ArrowDown:1,ArrowRight:2}[k];
+        document.querySelector('[data-act="rate"][data-r="'+r+'"]')?.click();
+      }else if(k==="ArrowRight")document.querySelector('[data-act="rflip"]')?.click();
+      return;
+    }
+  }
+  if(k==="Escape"||k==="ArrowLeft"){e.preventDefault();back();return}
+  if(k.toLowerCase()==="s"){const w=S.view==="review"&&S.rev&&S.rev.i<S.rev.q.length?BY[S.rev.q[S.rev.i]]:typeof S.step==="number"&&S.phase==="recall"&&S.rc?BY[S.rc.q[S.rc.i]]:null;if(w)speak(w.key);return}
+  if(S.view==="learn"&&S.step==="quiz"&&S.quiz&&!S.quiz.ans&&/^[1-4]$/.test(k)){
+    const opts=document.querySelectorAll('.opts [data-act="pick"]');if(opts[Number(k)-1]){e.preventDefault();opts[Number(k)-1].click()}return;
+  }
+  if(S.view==="review"&&S.rev&&S.rev.flip&&/^[1-3]$/.test(k)){
+    e.preventDefault();document.querySelector('[data-act="rate"][data-r="'+(Number(k)-1)+'"]')?.click();return;
+  }
+  if(k===" "||k==="Enter"||k==="ArrowRight"){
+    if(k==="Enter"&&document.activeElement?.matches("button,a,summary"))return;
+    const btn=document.querySelector('#dockin [data-primary="1"]:not([disabled])')||document.querySelector('#dockin [data-act="rc-flip"]')||document.querySelector('#dockin [data-act="rflip"]')||document.querySelector('#dockin [data-act="qnext"]');
+    if(btn){e.preventDefault();btn.click()}
+  }
+});
+</script>
+
+
+<script>
+const SYSTEM_PROMPT = "你是英语学习材料生成器。根据用户提供的单词/短语列表，严格输出一个 JSON 对象，不要输出任何其他文字。\n\n输出格式必须符合以下 schema：\n\n{\n  \"title\": \"自动生成的标题，如 Unit 3 1117\",\n  \"storeKey\": \"唯一存储键，如 u3-vocab-1117\",\n  \"groups\": [\"组名1\", \"组名2\", \"组名3\"],\n  \"words\": [\n    {\n      \"id\": \"短唯一id\",\n      \"g\": \"n/v/a/adv/phr\",\n      \"grp\": 0,\n      \"w\": \"单词或短语\",\n      \"key\": \"用于例句标记的文本\",\n      \"ipa\": \"音标或空字符串\",\n      \"pos\": \"词性\",\n      \"cn\": \"中文释义\",\n      \"gl\": \"英文释义\",\n      \"hook\": \"记忆钩：优先真实词源或可靠词根，禁止编造\",\n      \"ex\": \"原创例句，目标词必须用 {{key}} 包裹\",\n      \"exc\": \"例句中文翻译\"\n    }\n  ],\n  \"story\": [\n    {\n      \"en\": \"英文故事段落，全部目标词用 [[id|显示文本]] 标记\",\n      \"zh\": \"对应中文翻译\"\n    }\n  ]\n}\n\n强制规则：\n1. 按语义相近分组，每组 5–6 个，组名简洁。\n2. 记忆钩只写真实词源或可靠联想，不确定就写简单联想并标注。\n3. 例句必须原创，每个 words[i].ex 恰好出现一次由两个花括号包裹的目标词：{{实际的 key 字段内容}}。注意：必须在 ex 内实际输出花括号，不是只写单词本身，也不是写字面量 {{key}}（除非 key 确实等于 key）。例如 key= mobilize，合格 ex= The team will {{mobilize}} volunteers.；不合格 ex= The team will mobilize volunteers.。如果例句需要词形变化，则把 key 设为例句中使用的实际词形，并用 {{该词形}} 包裹，同时 w 保持用户输入原词。\n4. 故事必须用到全部单词，用 [[id|显示文本]] 标记，id 必须与 words 中一致。\n5. 只输出合法 JSON，不要 markdown 代码块，不要解释。\n6. 输出前逐一检查每个 words[i]：ex 必须且只能包含一个 {{...}}，其中花括号内部文本与该词的 key 严格相同；不要写任何多余的 {{...}}。";
+const CONFIG_KEY="vocab-studio:config", INDEX_KEY="vocab-studio:lessons";
+const el=id=>document.getElementById(id);
+function inputWords(){return el("wordsInput").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)}
+function normalized(s){return s.normalize("NFKC").replace(/\s+/g," ").trim().toLocaleLowerCase()}
+function showRawResponse(raw){
+  const panel=el("rawResponsePanel");
+  if(typeof raw!=="string"||!raw){panel.hidden=true;panel.open=false;el("rawResponseText").textContent="";return}
+  // textContent 安全呈现，包括 JSON 内的 HTML 标签、脚本和特殊字符。
+  el("rawResponseText").textContent=raw;panel.hidden=false;panel.open=false;
+}
+function report(errors){el("errors").hidden=!errors.length;el("errors").textContent=errors.length?"校验未通过：\n"+errors.map((x,i)=>(i+1)+". "+x).join("\n"):""}
+function validateLesson(d,items){
+  // schema.md 六项强制规则及基本类型、安全检查；返回可定位的问题列表
+  const err=[];
+  if(!d||typeof d!=="object"||Array.isArray(d))return ["根节点必须是 JSON 对象"];
+  const str=(v,k,allowEmpty=false)=>{if(typeof v!=="string"||(!allowEmpty&&!v.trim()))err.push(k+" 必须是非空字符串")};
+  str(d.title,"title");str(d.storeKey,"storeKey");
+  if(typeof d.storeKey==="string"&&!/^[a-z0-9][a-z0-9_-]{1,79}$/i.test(d.storeKey))err.push("storeKey 只能使用字母、数字、下划线、横线，长度 2–80");
+  if(!Array.isArray(d.groups)||!d.groups.length)err.push("groups 必须为非空数组");
+  else d.groups.forEach((g,i)=>str(g,`groups[${i}]`));
+  if(!Array.isArray(d.words)){err.push("words 必须是数组");return err}
+  if(d.words.length!==items.length)err.push(`words 数量不一致：输入 ${items.length} 个，返回 ${d.words.length} 个`);
+  const ids=new Set(), groupIds=new Set(), foundInput=new Map();
+  const required=["id","g","grp","w","key","ipa","pos","cn","gl","hook","ex","exc"];
+  d.words.forEach((w,i)=>{
+    const prefix=`words[${i}]`;
+    if(!w||typeof w!=="object"||Array.isArray(w)){err.push(prefix+" 必须是对象");return}
+    for(const f of required)if(!(f in w))err.push(`${prefix}.${f} 缺失`);
+    for(const f of required.filter(f=>f!=="grp"))str(w[f],prefix+"."+f,f==="ipa");
+    if(typeof w.id==="string"){
+      if(!/^[a-z][a-z0-9_]*$/.test(w.id))err.push(prefix+".id 必须是英文小写字母开头，仅含小写字母、数字、下划线");
+      if(ids.has(w.id))err.push("id 重复："+w.id);ids.add(w.id)
+    }
+    if(!["n","v","a","adv","phr"].includes(w.g))err.push(prefix+".g 必须是 n/v/a/adv/phr");
+    if(!Number.isInteger(w.grp)||w.grp<0||!Array.isArray(d.groups)||w.grp>=d.groups.length)err.push(prefix+".grp 超出有效分组范围");else groupIds.add(w.grp);
+    if(typeof w.ex==="string"&&typeof w.key==="string"&&!w.ex.includes("{{"+w.key+"}}"))err.push(prefix+".ex 缺少 {{key}} 标记");
+    if(typeof w.ex==="string"&&(w.ex.match(/\{\{/g)||[]).length!==1)err.push(prefix+".ex 应恰好有一个目标词标记");
+    if(typeof w.w==="string"){const key=normalized(w.w);foundInput.set(key,(foundInput.get(key)||0)+1)}
+  });
+  const wanted=new Map();for(const word of items){const key=normalized(word);wanted.set(key,(wanted.get(key)||0)+1)}
+  for(const [word,count] of wanted)if((foundInput.get(word)||0)!==count)err.push(`输入词「${word}」出现 ${count} 次，但生成词表出现 ${foundInput.get(word)||0} 次`);
+  for(const [word,count] of foundInput)if(!wanted.has(word))err.push(`生成词「${word}」不在输入清单中`);
+  if(Array.isArray(d.groups)&&(groupIds.size!==d.groups.length||![...groupIds].every((v,i)=>groupIds.has(i))))err.push(`groups 长度 ${d.groups.length} 与实际使用分组数 ${groupIds.size} 不一致`);
+  if(!Array.isArray(d.story)||d.story.length===0){err.push("story 必须为非空数组");return err}
+  const seen=new Set();
+  d.story.forEach((p,i)=>{
+    if(!p||typeof p!=="object"||Array.isArray(p)){err.push(`story[${i}] 必须是对象`);return}
+    str(p.en,`story[${i}].en`);str(p.zh,`story[${i}].zh`);
+    if(typeof p.en!=="string")return;
+    const matches=[...p.en.matchAll(/\[\[([^|\]]+)\|([^\]]+)\]\]/g)];
+    for(const m of matches){if(!ids.has(m[1]))err.push(`story[${i}] 引用了不存在的 id：${m[1]}`);else seen.add(m[1])}
+    const stripped=p.en.replace(/\[\[[^\]]*\]\]/g,"");if(stripped.includes("[[")||stripped.includes("]]"))err.push(`story[${i}].en 含未闭合的目标词标记`);
+  });
+  for(const id of ids)if(!seen.has(id))err.push(`story 未覆盖单词 id：${id}`);
+  return err;
+}
+function saveConfig(){localStorage.setItem(CONFIG_KEY,JSON.stringify({key:el("apiKey").value,model:el("modelInput").value}));}
+function listSaved(){try{return JSON.parse(localStorage.getItem(INDEX_KEY)||"[]")}catch(e){return []}}
+function showSaved(){const a=listSaved();el("previousWrap").hidden=!a.length;const wrap=el("previousList");wrap.replaceChildren();a.forEach(item=>{
+  const row=document.createElement("div");row.className="previousItem";
+  const label=document.createElement("span");label.textContent=item.title+" · "+item.count+" 词";
+  const btn=document.createElement("button");btn.className="btn sm";btn.textContent="继续学习";
+  btn.onclick=()=>openSaved(item.key);row.append(label,btn);wrap.appendChild(row)
+})}
+function openSaved(k){try{const d=JSON.parse(localStorage.getItem("vocab-studio:data:"+k));if(!d)throw Error("找不到原数据");const errs=validateLesson(d,d.words.map(w=>w.w));if(errs.length){report(errs);return}bindLesson(d)}catch(e){report(["恢复失败："+e.message])}}
+// 最多两轮定点修复：仅替换校验失败词条的 ex，不改变其他已生成字段。
+const MAX_EX_REPAIRS=2;
+function invalidExampleIndices(errors,lesson){
+  if(!lesson||!Array.isArray(lesson.words)||!errors.length)return null;
+  const result=new Set();
+  for(const msg of errors){
+    const m=/^words\[(\d+)\]\.ex (?:缺少 \{\{key\}\} 标记|应恰好有一个目标词标记)$/.exec(msg);
+    if(!m)return null; // 出现其他结构错误，不做局部修复，也绝不绕过校验
+    const idx=Number(m[1]);
+    if(idx<0||idx>=lesson.words.length||!lesson.words[idx]||typeof lesson.words[idx].key!=="string")return null;
+    result.add(idx);
+  }
+  return [...result].sort((a,b)=>a-b);
+}
+async function requestExampleRepair({key,model,lesson,indices,round}){
+  const targets=indices.map(index=>({index,w:lesson.words[index].w,key:lesson.words[index].key,ex:lesson.words[index].ex,cn:lesson.words[index].cn}));
+  const instructions=[
+    "你是 JSON 例句定点修复器，仅修复给出的 ex 字段。",
+    "输出单个合法 JSON 对象，格式严格为 {\"repairs\":[{\"index\":整数,\"ex\":\"英文例句\"}]}，不要 Markdown。",
+    "repairs 必须且只能覆盖输入 indices 的每个 index，不能重复或添加其他索引。",
+    "每个 ex 必须是自然、语法正确的英文例句，且必须恰好包含一个 {{单词}} 标记；标记内部的内容必须与对应 key 字段逐字一致。",
+    "例如 key=mobilize，则 ex=The team will {{mobilize}} volunteers.；不得使用字面量 {{key}}。",
+    "如果 key 是过去式或复数形式，确保例句语法匹配；不得修改 key、w 或任何其他字段。",
+    "在返回之前自行核对所有目标的 index、key 和占位符。"
+  ].join("\n");
+  const resp=await fetch("https://api.deepseek.com/chat/completions",{
+    method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+    body:JSON.stringify({model,messages:[{role:"system",content:instructions},{role:"user",content:JSON.stringify({round,targets})}],response_format:{type:"json_object"},stream:false,temperature:0.1})
+  });
+  const payload=await resp.json().catch(()=>{throw Error("修复接口返回的内容不是 JSON，HTTP "+resp.status)});
+  if(!resp.ok)throw Error("修复请求失败（HTTP "+resp.status+"）："+(payload.error?.message||"未知错误"));
+  const raw=payload.choices?.[0]?.message?.content;
+  if(typeof raw!=="string")throw Error("修复接口未返回 message.content");
+  let parsed;try{parsed=JSON.parse(raw)}catch(e){throw Error("修复结果不是合法 JSON："+e.message)}
+  if(!parsed||!Array.isArray(parsed.repairs)||parsed.repairs.length!==indices.length)throw Error("修复结果的 repairs 数量不匹配");
+  const expected=new Set(indices),seen=new Set(),updates=[];
+  for(const item of parsed.repairs){
+    if(!item||!Number.isInteger(item.index)||!expected.has(item.index)||seen.has(item.index)||typeof item.ex!=="string")throw Error("修复结果包含无效或重复 index / ex");
+    seen.add(item.index);
+    const word=lesson.words[item.index];
+    const tags=[...item.ex.matchAll(/\{\{([^{}]+)\}\}/g)];
+    if(tags.length!==1||tags[0][1]!==word.key||(item.ex.match(/\{\{/g)||[]).length!==1||(item.ex.match(/\}\}/g)||[]).length!==1)throw Error("words["+item.index+"].ex 修复后仍缺少正确且唯一的目标词标记");
+    updates.push({index:item.index,ex:item.ex});
+  }
+  // 所有修复值验证完成才一起提交，防止半更新。
+  for(const item of updates)lesson.words[item.index].ex=item.ex;
+  return raw;
+}
+async function generate(){
+  const items=inputWords(), key=el("apiKey").value.trim(),model=el("modelInput").value.trim();
+  const errors=[];if(!items.length)errors.push("请每行输入一个单词或短语");if(new Set(items.map(normalized)).size!==items.length)errors.push("输入列表中存在重复单词，请先去重");
+  if(!key)errors.push("请输入 DeepSeek API Key");if(!model)errors.push("请输入模型名称");
+  report(errors);if(errors.length)return;
+  showRawResponse(null);saveConfig();el("generateBtn").disabled=true;el("generateBtn").textContent="正在生成…";el("retryBtn").hidden=true;
+  el("status").textContent="正在调用 DeepSeek，请勿重复提交。";
+  try{
+    const resp=await fetch("https://api.deepseek.com/chat/completions",{
+      method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+      body:JSON.stringify({model,messages:[{role:"system",content:SYSTEM_PROMPT},{role:"user",content:items.join("\n")}],response_format:{type:"json_object"},stream:false,temperature:0.4})
+    });
+    const payload=await resp.json().catch(()=>{throw Error("API 返回内容不是 JSON，HTTP "+resp.status)});
+    if(!resp.ok)throw Error("API 请求失败（HTTP "+resp.status+"）："+(payload.error?.message||"未知错误"));
+    const raw=payload.choices?.[0]?.message?.content;
+    if(typeof raw!=="string")throw Error("API 没有返回 message.content");
+    showRawResponse(raw);
+    let d;try{d=JSON.parse(raw)}catch(e){throw Error("模型返回的内容不是合法 JSON："+e.message)}
+    let errs=validateLesson(d,items);
+    let rounds=0,repairIssue="";
+    // 只有例句标记类错误才进入自动修复；其他错误仍按原规则失败。
+    while(errs.length&&rounds<MAX_EX_REPAIRS){
+      const indices=invalidExampleIndices(errs,d);
+      if(!indices||!indices.length)break;
+      rounds++;
+      el("status").textContent=`发现 ${indices.length} 个例句标记问题，正在自动修复（${rounds}/${MAX_EX_REPAIRS}）…`;
+      try{
+        const repairRaw=await requestExampleRepair({key,model,lesson:d,indices,round:rounds});
+        // 保留最初模型原文供人工排查；后续失败同时展示修复结果。
+        showRawResponse(raw+"\n\n--- 第 "+rounds+" 轮修复响应 ---\n"+repairRaw);
+      }catch(repairError){
+        repairIssue=repairError.message;
+        console.warn("例句定点修复失败：",repairError);
+        break;
+      }
+      errs=validateLesson(d,items);
+    }
+    if(errs.length){
+      report(repairIssue?[...errs,"自动修复未完成："+repairIssue]:errs);
+      el("status").textContent=`生成结果校验失败${rounds?`（已尝试 ${rounds} 次修复）`:""}，页面未渲染。`;
+      el("retryBtn").hidden=false;return;
+    }
+    try{
+      const previous=localStorage.getItem("vocab-studio:data:"+d.storeKey);
+      if(previous){const old=JSON.parse(previous);if(JSON.stringify(old.words.map(w=>normalized(w.w)).sort())!==JSON.stringify(d.words.map(w=>normalized(w.w)).sort()))throw Error("storeKey 与其他学习单元冲突（"+d.storeKey+"），请重试生成不同的存储键");}
+      localStorage.setItem("vocab-studio:data:"+d.storeKey,JSON.stringify(d));
+      const records=listSaved().filter(x=>x.key!==d.storeKey);records.unshift({key:d.storeKey,title:d.title,count:d.words.length});localStorage.setItem(INDEX_KEY,JSON.stringify(records.slice(0,30)))
+    }catch(e){throw Error("无法保存学习数据，请检查浏览器存储权限或空间："+e.message)}
+    report([]);showRawResponse(null);el("status").textContent="校验通过，已载入学习页。";bindLesson(d);
+  }catch(e){report([e.message]);el("status").textContent="生成失败，可重试。";el("retryBtn").hidden=false}
+  finally{el("generateBtn").disabled=false;el("generateBtn").textContent="生成学习页"}
+}
+// 可移植文件：原始学习数据 + 对应 localStorage 进度 + 会话状态。
+// 不包含 API Key，也不执行导入文件中的任何代码。
+function currentLessonData(){
+  if(!STORE)return null;
+  const data=localStorage.getItem("vocab-studio:data:"+STORE);
+  if(!data)return null;
+  return JSON.parse(data);
+}
+function refreshExportButton(){el("exportUnitBtn").disabled=!STORE||!localStorage.getItem("vocab-studio:data:"+STORE)}
+function exportCurrentUnit(){
+  try{
+    const lesson=currentLessonData();if(!lesson)throw Error("当前没有可导出的学习单元");
+    persistSession();
+    const items=lesson.words.map(w=>w.w),errs=validateLesson(lesson,items);
+    if(errs.length)throw Error("现有数据校验失败："+errs.join("；"));
+    const progress=JSON.parse(localStorage.getItem(STORE)||"null");
+    const session=JSON.parse(localStorage.getItem(STORE+":session")||"null");
+    const content={format:"vocab-studio-unit",version:1,exportedAt:new Date().toISOString(),lesson,progress,session};
+    const blob=new Blob([JSON.stringify(content,null,2)],{type:"application/json;charset=utf-8"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download="vocab-unit-"+lesson.storeKey+".json";document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    el("status").textContent="学习单元及当前进度已导出（不含 API Key）。";
+  }catch(e){report(["导出失败："+e.message])}
+}
+function validateImportedState(progress,session,lesson){
+  const errors=[],ids=new Set(lesson.words.map(w=>w.id));
+  const plain=o=>o!==null&&typeof o==="object"&&!Array.isArray(o);
+  if(progress!==null){
+    if(!plain(progress)||!plain(progress.weak)||typeof progress.done!=="boolean")errors.push("progress 结构无效");
+    else {
+      for(const [id,v] of Object.entries(progress.weak))if(!ids.has(id)||v!==true)errors.push("progress.weak 含无效条目："+id);
+      if(progress.srs!==null){
+        if(!plain(progress.srs))errors.push("progress.srs 不是对象");
+        else for(const [id,v] of Object.entries(progress.srs))if(!ids.has(id)||!plain(v)||!Number.isInteger(v.b)||v.b<0||v.b>5||typeof v.due!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v.due))errors.push("progress.srs 含无效条目："+id);
+      }
+    }
+  }
+  if(session!==null){
+    if(!plain(session)||!["learn","review","list"].includes(session.view)||!(session.step==="intro"||session.step==="quiz"||session.step==="story"||session.step==="done"||Number.isInteger(session.step)&&session.step>=0&&session.step<lesson.groups.length))errors.push("session 视图或学习阶段无效");
+    else if(session.step==="quiz"){
+      const q=session.quiz;
+      if(!plain(q)||!Array.isArray(q.q)||!Number.isInteger(q.i)||q.i<0||q.i>=q.q.length||!plain(q.first)||!plain(q.again)||!Number.isInteger(q.right)||q.right<0){errors.push("session.quiz 结构无效");}
+      else for(const item of q.q){
+        if(!plain(item)||!ids.has(item.id)||![0,1,2].includes(item.type)||!Array.isArray(item.opts)||item.opts.length!==4||item.opts.some(id=>!ids.has(id)))errors.push("session.quiz 含无效题目");
+      }
+    }
+    if(plain(session)&&typeof session.step==="number"&&session.phase==="recall"&&(!plain(session.rc)||!Array.isArray(session.rc.q)||session.rc.q.some(id=>!ids.has(id))||!Number.isInteger(session.rc.i)||session.rc.i<0))errors.push("session.rc 结构无效");
+    if(plain(session)&&session.view==="review"&&session.rev!==null&&session.rev!==undefined&&(!plain(session.rev)||!Array.isArray(session.rev.q)||session.rev.q.some(id=>!ids.has(id))||!Number.isInteger(session.rev.i)||session.rev.i<0))errors.push("session.rev 结构无效");
+  }
+  return errors;
+}
+async function importUnitFile(file){
+  if(!file)return;
+  try{
+    if(file.size>5*1024*1024)throw Error("文件超过 5 MB");
+    const raw=await file.text(),payload=JSON.parse(raw);
+    if(!payload||payload.format!=="vocab-studio-unit"||payload.version!==1)throw Error("不是支持的学习单元导出文件（版本 1）");
+    const d=payload.lesson;
+    if(!d||!Array.isArray(d.words))throw Error("缺少 lesson.words");
+    const errs=validateLesson(d,d.words.map(w=>w?.w));
+    errs.push(...validateImportedState(payload.progress??null,payload.session??null,d));
+    if(errs.length){report(errs);el("status").textContent="导入校验失败，未覆盖本地数据。";return}
+    // 导入前把当前进度持久化；同 storeKey 会覆盖对应旧记录。
+    persistSession();
+    localStorage.setItem("vocab-studio:data:"+d.storeKey,JSON.stringify(d));
+    if(payload.progress!==null&&payload.progress!==undefined)localStorage.setItem(d.storeKey,JSON.stringify(payload.progress));
+    else localStorage.removeItem(d.storeKey);
+    if(payload.session!==null&&payload.session!==undefined)localStorage.setItem(d.storeKey+":session",JSON.stringify(payload.session));
+    else localStorage.removeItem(d.storeKey+":session");
+    const records=listSaved().filter(x=>x.key!==d.storeKey);
+    records.unshift({key:d.storeKey,title:d.title,count:d.words.length});
+    localStorage.setItem(INDEX_KEY,JSON.stringify(records.slice(0,30)));
+    report([]);showRawResponse(null);el("status").textContent="学习单元导入成功。";
+    bindLesson(d);refreshExportButton();
+  }catch(e){report(["导入失败："+e.message]);el("status").textContent="导入未完成。"}
+}
+el("exportUnitBtn").addEventListener("click",exportCurrentUnit);
+el("importUnitBtn").addEventListener("click",()=>el("importUnitFile").click());
+el("importUnitFile").addEventListener("change",async e=>{const file=e.target.files?.[0];await importUnitFile(file);e.target.value=""});
+el("newUnit").addEventListener("click",()=>{persistSession();el("studyApp").hidden=true;el("setupApp").hidden=false;showSaved();refreshExportButton();window.scrollTo(0,0)});
+el("generateBtn").addEventListener("click",generate);el("retryBtn").addEventListener("click",generate);
+el("imageInput").addEventListener("change",()=>{const f=el("imageInput").files?.[0];el("imageNote").textContent=f?"已选择文件："+f.name+"。请将识别结果手动粘贴到文本框；OCR 尚未接入。":"图片识别下一阶段接入；目前请将识别文本粘贴到上方"});
+try{const c=JSON.parse(localStorage.getItem(CONFIG_KEY)||"{}");el("apiKey").value=c.key||"";el("modelInput").value=c.model||"deepseek-chat"}catch(e){}
+showSaved();refreshExportButton();
+// 便于本地测试，无外部依赖
+window.VocabStudio={validateLesson,bindLesson,inputWords};
+</script>
+</body></html>
+<!-- 
+键盘快捷键要求（已实现）：
+- 空格 / 回车 / → ：当前主操作（翻面、下一题、继续）
+- 1 / 2 / 3 ：复习评分（忘了 / 模糊 / 记得）
+- Esc 或 ← ：返回
+- S ：朗读
+- 数字键 1-4 ：选择测验选项
+-->
